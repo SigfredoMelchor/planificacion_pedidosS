@@ -10,6 +10,12 @@ st.title("📦 Generador de Planificación de Pedidos")
 
 # Subir archivo Excel
 archivo = st.file_uploader("📥 Sube tu archivo de planificación", type=["xlsx"])
+if archivo is not None:
+    df = pd.read_excel(archivo)
+    df.columns = df.columns.str.strip().str.lower()  # Eliminar espacios y pasar a minúsculas
+else:
+    st.error("❌ Error: No se ha subido ningún archivo.")
+    st.stop()
 
 if archivo:
     df = pd.read_excel(archivo)
