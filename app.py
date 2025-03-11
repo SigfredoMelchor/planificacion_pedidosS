@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Configuración de la página
 st.set_page_config(page_title="Planificación de Pedidos", layout="wide")
@@ -29,7 +29,8 @@ if archivo is not None:
         "stock virtual": ["stock virtual", "stock_virtual", "stockvirtual"],
         "cajascapas": ["cajascapas", "cajas capas", "cajas_capas"],
         "cajaspalet": ["cajaspalet", "cajas palet", "cajas_palet"],
-        "pedido": ["pedido", "orden", "cantidad pedida"]
+        "pedido": ["pedido", "orden", "cantidad pedida"],
+        "última venta": ["última venta", "fecha última venta", "fecha_ultima_venta"]
     }
 
     for key, posibles_nombres in nombres_columnas.items():
@@ -39,7 +40,7 @@ if archivo is not None:
                 break
 
     # 🔹 **Verificar si todas las columnas necesarias existen**
-    columnas_requeridas = list(nombres_columnas.keys())
+    columnas_requeridas = ["articulo", "descripción de artículo", "21 días", "stock virtual", "cajascapas", "cajaspalet", "pedido"]
     columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
 
     if columnas_faltantes:
@@ -56,6 +57,12 @@ if archivo is not None:
     if st.button("🚀 Generar Pedido"):
         # Obtener la fecha y la hora actual (sin segundos)
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+
+        # 🔹 **Filtrar productos con última venta mayor a 3 meses**
+        if "última venta" in df.columns:
+            df["última venta"] = pd.to_datetime(df["última venta"], errors='coerce')
+            fecha_limite = datetime.now() - timedelta(days=90)
+            df = df[df["última venta"].isna() | (df["última venta"] >= fecha_limite)]
 
         # Procesar el pedido
         df["Stock Necesario"] = (df["21 días"] / 21 * dias_stock).round().astype(int)
@@ -109,19 +116,7 @@ if archivo is not None:
         df.to_excel(output_files[f"Planificacion_Pedidos_{timestamp}"], index=False, engine='xlsxwriter')
         output_files[f"Planificacion_Pedidos_{timestamp}"].seek(0)
 
-        # 📌 2. Errores en CajasCapas
-        df_errores = df[df["cajascapas"] == 0][["pedido", "cajascapas", "cajaspalet"]]
-        output_files[f"Errores_CajasCapas_{timestamp}"] = io.BytesIO()
-        df_errores.to_excel(output_files[f"Errores_CajasCapas_{timestamp}"], index=False, engine='xlsxwriter')
-        output_files[f"Errores_CajasCapas_{timestamp}"].seek(0)
-
-        # 📌 3. Productos para Descatalogar
-        df_descatalogar = df[(df["21 días"] < 5) | (df["21 días"] == 0)]
-        output_files[f"Productos_Para_Descatalogar_{timestamp}"] = io.BytesIO()
-        df_descatalogar.to_excel(output_files[f"Productos_Para_Descatalogar_{timestamp}"], index=False, engine='xlsxwriter')
-        output_files[f"Productos_Para_Descatalogar_{timestamp}"].seek(0)
-
-        # 📌 4. Pedido para SAP
+        # 📌 2. Pedido para SAP
         output_files[f"Pedido_para_SAP_{timestamp}"] = io.BytesIO()
         df_pedido_sap.to_excel(output_files[f"Pedido_para_SAP_{timestamp}"], index=False, engine='xlsxwriter')
         output_files[f"Pedido_para_SAP_{timestamp}"].seek(0)
