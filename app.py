@@ -15,6 +15,22 @@ if archivo:
     df = pd.read_excel(archivo)
     st.write("📋 **Vista previa del archivo:**")
     st.dataframe(df)
+    # Normalizar nombres de columnas (eliminar espacios y convertir a minúsculas)
+    df.columns = df.columns.str.strip().str.lower()
+
+    # Mostrar los nombres de las columnas en Streamlit para verificar
+    st.write("🔍 **Columnas detectadas en el archivo:**", list(df.columns))
+
+    # Verificar si las columnas necesarias existen
+    columnas_requeridas = ["cajascapas", "cajaspalet", "pedido"]
+    columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
+
+    if columnas_faltantes:
+        st.error(f"❌ Error: Faltan las siguientes columnas en el archivo: {', '.join(columnas_faltantes)}")
+        st.stop()
+
+    # Asegurar que "CajasCapas" no sea 0 para evitar división por 0
+    df["cajascapas"] = df["cajascapas"].replace(0, 1)
 
     # Selección de parámetros
     dias_stock = st.slider("📆 Selecciona los días de stock", 1, 90, 21)
