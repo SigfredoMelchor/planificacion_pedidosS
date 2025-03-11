@@ -27,8 +27,9 @@ if archivo:
 
         # Calcular "Pedido Ajustado"
         df["Pedido Ajustado"] = df.apply(
-            lambda row: max(row["Stock Necesario"] - row["Stock Virtual"], 0) if row["Stock Necesario"] > row["Stock Virtual"] else 0, axis=1
-        )
+    lambda row: ((row["Pedido Ajustado"] // max(row["CajasCapas"], 1)) * row["CajasCapas"]) if row["Pedido Ajustado"] > 0 else 0, axis=1
+)
+
 
         # Ajustar pedidos en múltiplos de "CajasCapas"
         df["Pedido Ajustado"] = df.apply(
