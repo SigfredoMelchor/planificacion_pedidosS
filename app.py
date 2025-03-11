@@ -1,6 +1,3 @@
-# Código actualizado para incluir la fecha y la hora en los nombres de los archivos generados
-
-updated_code_with_timestamp = """
 import streamlit as st
 import pandas as pd
 import io
@@ -105,9 +102,9 @@ if archivo is not None:
         output_files = {}
 
         # 📌 1. Planificación de Pedidos
-        output_files[f"Planificación_de_Pedidos_{timestamp}"] = io.BytesIO()
-        df.to_excel(output_files[f"Planificación_de_Pedidos_{timestamp}"], index=False, engine='xlsxwriter')
-        output_files[f"Planificación_de_Pedidos_{timestamp}"].seek(0)
+        output_files[f"Planificacion_Pedidos_{timestamp}"] = io.BytesIO()
+        df.to_excel(output_files[f"Planificacion_Pedidos_{timestamp}"], index=False, engine='xlsxwriter')
+        output_files[f"Planificacion_Pedidos_{timestamp}"].seek(0)
 
         # 📌 2. Errores en CajasCapas
         df_errores = df[df["cajascapas"] == 0][["pedido", "cajascapas", "cajaspalet"]]
@@ -137,6 +134,3 @@ if archivo is not None:
             )
 else:
     st.warning("📤 **Por favor, sube un archivo Excel para comenzar.**")
-"""
-
-updated_code_with_timestamp
