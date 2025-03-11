@@ -75,7 +75,7 @@ if archivo is not None:
         df["pedido"] = df["Pedido Ajustado"]
         df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
 
-        # 🔹 **Distribuir el pedido adicional correctamente**
+        # 🔹 **Distribuir el pedido adicional correctamente (múltiplo exacto de CajasPalet)**
         df["Pedido Adicional"] = 0
         df["Pallets Pedido Adicional"] = 0
 
@@ -85,6 +85,9 @@ if archivo is not None:
         if falta_para_33 > 0:
             top_articulos = df.sort_values(by="21 días", ascending=False).head(num_articulos_pedido_adicional).index
             pedido_por_articulo = ((falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]).round().astype(int)
+
+            # Asegurar que el pedido adicional sea un múltiplo exacto de CajasPalet
+            pedido_por_articulo = (pedido_por_articulo // df.loc[top_articulos, "cajaspalet"]) * df.loc[top_articulos, "cajaspalet"]
 
             df.loc[top_articulos, "Pedido Adicional"] = pedido_por_articulo
             df["Pallets Pedido Adicional"] = (df["Pedido Adicional"] / df["cajaspalet"]).fillna(0).round(2)
