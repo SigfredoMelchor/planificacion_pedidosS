@@ -22,6 +22,8 @@ if archivo is not None:
 
     # 🔹 **Corrección: Mapear nombres de columnas equivalentes**
     nombres_columnas = {
+        "articulo": ["articulo", "código de artículo", "id"],
+        "descripción de artículo": ["descripción de artículo", "nombre del producto"],
         "21 días": ["21 días", "21_dias", "21dias"],
         "stock virtual": ["stock virtual", "stock_virtual", "stockvirtual"],
         "cajascapas": ["cajascapas", "cajas capas", "cajas_capas"],
@@ -67,7 +69,20 @@ if archivo is not None:
 
         # Asignar el nuevo pedido calculado
         df["pedido"] = df["Pedido Ajustado"]
-        df["Pallets Pedido"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
+        df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
+
+        # 🔹 **Distribuir el pedido adicional**
+        df["Pedido Adicional"] = 0
+        df["Pallets Pedido Adicional"] = 0
+
+        top_articulos = df.sort_values(by="21 días", ascending=False).head(num_articulos_pedido_adicional).index
+        pedido_adicional_total = max(33 - df["Pallets Pedido (Original)"].sum() % 33, 0)
+        if pedido_adicional_total > 0:
+            df.loc[top_articulos, "Pedido Adicional"] = (pedido_adicional_total / num_articulos_pedido_adicional).astype(int)
+            df["Pallets Pedido Adicional"] = (df["Pedido Adicional"] / df["cajaspalet"]).fillna(0).round(2)
+
+        df["Pallets Pedido Total"] = df["Pallets Pedido (Original)"] + df["Pallets Pedido Adicional"]
+        df["Pedido Completo SAP"] = df["pedido"] + df["Pedido Adicional"]
 
         # 🔹 **Generar los cuatro archivos de salida**
         output_files = {}
@@ -90,10 +105,9 @@ if archivo is not None:
         output_files["Productos para Descatalogar"].seek(0)
 
         # 📌 4. Pedido para SAP
-        df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
-        df["Pedido Completo SAP"] = df["pedido"]
-        df_pedido_sap = df[df["pedido"] > 0][
-            ["pedido", "Pallets Pedido (Original)", "cajaspalet", "Pallets Pedido", "Pedido Completo SAP"]
+        df_pedido_sap = df[
+            ["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional",
+             "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]
         ]
         output_files["Pedido para SAP"] = io.BytesIO()
         df_pedido_sap.to_excel(output_files["Pedido para SAP"], index=False, engine='xlsxwriter')
