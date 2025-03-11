@@ -69,23 +69,44 @@ if archivo is not None:
         df["pedido"] = df["Pedido Ajustado"]
         df["Pallets Pedido"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
 
-        # Crear columnas para el archivo "Pedido para SAP"
+        # 🔹 **Generar los cuatro archivos de salida**
+        output_files = {}
+
+        # 📌 1. Planificación de Pedidos
+        output_files["Planificación de Pedidos"] = io.BytesIO()
+        df.to_excel(output_files["Planificación de Pedidos"], index=False, engine='xlsxwriter')
+        output_files["Planificación de Pedidos"].seek(0)
+
+        # 📌 2. Errores en CajasCapas
+        df_errores = df[df["cajascapas"] == 0][["pedido", "cajascapas", "cajaspalet"]]
+        output_files["Errores en CajasCapas"] = io.BytesIO()
+        df_errores.to_excel(output_files["Errores en CajasCapas"], index=False, engine='xlsxwriter')
+        output_files["Errores en CajasCapas"].seek(0)
+
+        # 📌 3. Productos para Descatalogar
+        df_descatalogar = df[(df["21 días"] < 5) | (df["21 días"] == 0)]
+        output_files["Productos para Descatalogar"] = io.BytesIO()
+        df_descatalogar.to_excel(output_files["Productos para Descatalogar"], index=False, engine='xlsxwriter')
+        output_files["Productos para Descatalogar"].seek(0)
+
+        # 📌 4. Pedido para SAP
         df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
         df["Pedido Completo SAP"] = df["pedido"]
+        df_pedido_sap = df[df["pedido"] > 0][
+            ["pedido", "Pallets Pedido (Original)", "cajaspalet", "Pallets Pedido", "Pedido Completo SAP"]
+        ]
+        output_files["Pedido para SAP"] = io.BytesIO()
+        df_pedido_sap.to_excel(output_files["Pedido para SAP"], index=False, engine='xlsxwriter')
+        output_files["Pedido para SAP"].seek(0)
 
-        # Generar el archivo Excel para descarga
-        output = io.BytesIO()
-        df.to_excel(output, index=False, engine='xlsxwriter')
-        output.seek(0)
-
-        st.success("✅ ¡Pedido generado correctamente!")
-        st.dataframe(df)
-
-        st.download_button(
-            label="📥 Descargar Pedido en Excel",
-            data=output,
-            file_name="Planificacion_Pedidos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # 📥 Botones para descargar los archivos
+        st.success("✅ ¡Archivos generados correctamente!")
+        for nombre, archivo in output_files.items():
+            st.download_button(
+                label=f"📥 Descargar {nombre}",
+                data=archivo,
+                file_name=f"{nombre.replace(' ', '_')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 else:
     st.warning("📤 **Por favor, sube un archivo Excel para comenzar.**")
