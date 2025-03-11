@@ -80,13 +80,19 @@ if archivo is not None:
 
         if falta_para_33 > 0:
             top_articulos = df.sort_values(by="21 días", ascending=False).head(num_articulos_pedido_adicional).index
-            pedido_por_articulo = (falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]
+            pedido_por_articulo = ((falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]).round().astype(int)
 
-            df.loc[top_articulos, "Pedido Adicional"] = pedido_por_articulo.round().astype(int)
+            df.loc[top_articulos, "Pedido Adicional"] = pedido_por_articulo
             df["Pallets Pedido Adicional"] = (df["Pedido Adicional"] / df["cajaspalet"]).fillna(0).round(2)
 
         df["Pallets Pedido Total"] = df["Pallets Pedido (Original)"] + df["Pallets Pedido Adicional"]
         df["Pedido Completo SAP"] = df["pedido"] + df["Pedido Adicional"]
+
+        # 🔹 **Filtrar solo los artículos con pedido o con pedido adicional**
+        df_pedido_sap = df[(df["pedido"] > 0) | (df["Pedido Adicional"] > 0)][
+            ["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional",
+             "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]
+        ]
 
         # 🔹 **Generar los cuatro archivos de salida**
         output_files = {}
@@ -109,10 +115,6 @@ if archivo is not None:
         output_files["Productos para Descatalogar"].seek(0)
 
         # 📌 4. Pedido para SAP
-        df_pedido_sap = df[
-            ["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional",
-             "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]
-        ]
         output_files["Pedido para SAP"] = io.BytesIO()
         df_pedido_sap.to_excel(output_files["Pedido para SAP"], index=False, engine='xlsxwriter')
         output_files["Pedido para SAP"].seek(0)
