@@ -15,6 +15,30 @@ if archivo:
     df = pd.read_excel(archivo)
     st.write("📋 **Vista previa del archivo:**")
     st.dataframe(df)
+# Normalizar nombres de columnas (eliminar espacios y convertir a minúsculas)
+df.columns = df.columns.str.strip().str.lower()
+
+# Mostrar los nombres de las columnas en Streamlit para verificar
+st.write("🔍 **Columnas detectadas en el archivo:**", list(df.columns))
+
+# Verificar si "21 Días" existe con otro nombre
+columnas_equivalentes = {
+    "21 días": ["21 días", "21_dias", "21dias"]
+}
+
+for key, posibles_nombres in columnas_equivalentes.items():
+    for nombre in posibles_nombres:
+        if nombre in df.columns:
+            df.rename(columns={nombre: key}, inplace=True)
+            break
+
+# Revisar si la columna "21 Días" está en el DataFrame después de la corrección
+if "21 días" not in df.columns:
+    st.error("❌ Error: La columna '21 Días' no está en el archivo. Verifique que el nombre sea correcto.")
+    st.stop()
+
+
+    
     # Normalizar nombres de columnas (eliminar espacios y convertir a minúsculas)
     df.columns = df.columns.str.strip().str.lower()
 
