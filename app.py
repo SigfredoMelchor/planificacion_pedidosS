@@ -1,4 +1,4 @@
-import streamlit as st
+     import streamlit as st
 import pandas as pd
 import io
 from datetime import datetime, timedelta
@@ -102,31 +102,33 @@ if archivo is not None:
         df["Pallets Pedido Total"] = df["Pallets Pedido (Original)"] + df["Pallets Pedido Adicional"]
         df["Pedido Completo SAP"] = df["pedido"] + df["Pedido Adicional"]
 
-        # 🔹 **Filtrar solo los artículos con pedido o con pedido adicional**
-        df_pedido_sap = df[(df["pedido"] > 0) | (df["Pedido Adicional"] > 0)][
-            ["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional",
-             "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]
-        ]
-
         # 🔹 **Generar los cuatro archivos de salida**
         output_files = {}
 
         # 📌 1. Planificación de Pedidos
         output_files[f"Planificacion_Pedidos_{timestamp}"] = io.BytesIO()
         df.to_excel(output_files[f"Planificacion_Pedidos_{timestamp}"], index=False, engine='xlsxwriter')
-        output_files[f"Planificacion_Pedidos_{timestamp}"].seek(0)
 
-        # 📌 2. Pedido para SAP
+        # 📌 2. Errores en CajasCapas
+        df_errores = df[df["cajascapas"] == 0]
+        output_files[f"Errores_CajasCapas_{timestamp}"] = io.BytesIO()
+        df_errores.to_excel(output_files[f"Errores_CajasCapas_{timestamp}"], index=False, engine='xlsxwriter')
+
+        # 📌 3. Productos para Descatalogar
+        df_descatalogar = df[(df["21 días"] < 5) | (df["21 días"] == 0)]
+        output_files[f"Productos_Para_Descatalogar_{timestamp}"] = io.BytesIO()
+        df_descatalogar.to_excel(output_files[f"Productos_Para_Descatalogar_{timestamp}"], index=False, engine='xlsxwriter')
+
+        # 📌 4. Pedido para SAP
         output_files[f"Pedido_para_SAP_{timestamp}"] = io.BytesIO()
-        df_pedido_sap.to_excel(output_files[f"Pedido_para_SAP_{timestamp}"], index=False, engine='xlsxwriter')
-        output_files[f"Pedido_para_SAP_{timestamp}"].seek(0)
+        df.to_excel(output_files[f"Pedido_para_SAP_{timestamp}"], index=False, engine='xlsxwriter')
 
         # 📥 Botones para descargar los archivos
         st.success("✅ ¡Archivos generados correctamente!")
         for nombre, archivo in output_files.items():
             st.download_button(
                 label=f"📥 Descargar {nombre}",
-                data=archivo,
+                data=archivo.getvalue(),
                 file_name=f"{nombre}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
