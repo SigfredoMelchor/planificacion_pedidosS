@@ -44,7 +44,7 @@ if archivo is not None:
 
     # Evitar división por cero y NaN en columnas numéricas
     df["cajascapas"] = df["cajascapas"].fillna(1).replace(0, 1).astype(int)
-    df["pedido"] = df["pedido"].fillna(0).astype(int)
+    df["pedido"] = pd.to_numeric(df["pedido"], errors='coerce').fillna(0).astype(int)
 
     # Selección de parámetros
     dias_stock = st.slider("📆 Selecciona los días de stock", 1, 90, 21)
