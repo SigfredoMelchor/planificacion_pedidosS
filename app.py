@@ -60,6 +60,10 @@ if archivo is not None:
             fecha_limite = datetime.now() - timedelta(days=90)
             df = df[df["última venta"].isna() | (df["última venta"] >= fecha_limite)]
 
+        # **🔹 Corregir cálculo de Stock Necesario basado en días de stock**
+        df["Stock Necesario"] = (df["21 días"] / 21 * dias_stock).round().astype(int)
+        df["Exceso de Stock"] = (df["stock virtual"] - df["Stock Necesario"]).round().astype(int)
+
         # Ajustar pedidos en múltiplos de "CajasCapas" para evitar pallets mixtos
         df["Ajuste CajasCapas"] = df["pedido"] % df["cajascapas"]
         df["pedido"] = df["pedido"] - df["Ajuste CajasCapas"]
