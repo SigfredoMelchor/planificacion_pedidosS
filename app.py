@@ -14,14 +14,9 @@ archivo = st.file_uploader("📥 Sube tu archivo de planificación", type=["xlsx
 
 if archivo is not None:
     df = pd.read_excel(archivo)
+    df.columns = df.columns.str.strip().str.lower()
 
-    # 🔹 **Corrección: Normalizar nombres de columnas**
-    df.columns = df.columns.str.strip().str.lower()  # Convertir a minúsculas y eliminar espacios
-
-    # Mostrar las columnas detectadas en Streamlit para depuración
-    st.write("🔍 **Columnas detectadas en el archivo:**", list(df.columns))
-
-    # 🔹 **Corrección: Mapear nombres de columnas equivalentes**
+    # Mapeo de nombres de columnas equivalentes
     nombres_columnas = {
         "articulo": ["articulo", "código de artículo", "id"],
         "descripción de artículo": ["descripción de artículo", "nombre del producto"],
@@ -31,14 +26,14 @@ if archivo is not None:
         "cajaspalet": ["cajaspalet", "cajas palet", "cajas_palet"],
         "pedido": ["pedido", "orden", "cantidad pedida"]
     }
-
+    
     for key, posibles_nombres in nombres_columnas.items():
         for nombre in posibles_nombres:
             if nombre in df.columns:
                 df.rename(columns={nombre: key}, inplace=True)
                 break
 
-    # 🔹 **Verificar si todas las columnas necesarias existen**
+    # Verificación de columnas necesarias
     columnas_requeridas = list(nombres_columnas.keys())
     columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
 
@@ -46,7 +41,6 @@ if archivo is not None:
         st.error(f"❌ Error: Faltan las siguientes columnas en el archivo: {', '.join(columnas_faltantes)}")
         st.stop()
 
-    # Asegurar que "CajasCapas" no sea 0 para evitar división por cero
     df["cajascapas"] = df["cajascapas"].replace(0, 1)
 
     # Selección de parámetros
@@ -54,78 +48,39 @@ if archivo is not None:
     num_articulos_pedido_adicional = st.slider("📌 Número de artículos para distribuir el pedido adicional", 1, 20, 10)
 
     if st.button("🚀 Generar Pedido"):
-        # Obtener la fecha y la hora actual (sin segundos)
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
-        # Procesar el pedido
+        # Procesamiento del pedido
         df["Stock Necesario"] = (df["21 días"] / 21 * dias_stock).round().astype(int)
         df["Exceso de Stock"] = (df["stock virtual"] - df["Stock Necesario"]).round().astype(int)
-
-        # Calcular "Pedido Ajustado"
-        df["Pedido Ajustado"] = df.apply(
-            lambda row: max(row["Stock Necesario"] - row["stock virtual"], 0) if row["Stock Necesario"] > row["stock virtual"] else 0, axis=1
-        )
-
-        # Ajustar pedidos en múltiplos de "CajasCapas"
-        df["Pedido Ajustado"] = df.apply(
-            lambda row: ((row["Pedido Ajustado"] // row["cajascapas"]) * row["cajascapas"]) if row["Pedido Ajustado"] > 0 else 0, axis=1
-        )
-
-        # Asignar el nuevo pedido calculado
+        df["Pedido Ajustado"] = df.apply(lambda row: max(row["Stock Necesario"] - row["stock virtual"], 0), axis=1)
+        df["Pedido Ajustado"] = df.apply(lambda row: ((row["Pedido Ajustado"] // row["cajascapas"]) * row["cajascapas"]) if row["Pedido Ajustado"] > 0 else 0, axis=1)
+        
         df["pedido"] = df["Pedido Ajustado"]
         df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
 
-        # 🔹 **Corrección: Verificar si realmente falta pedido adicional**
-        total_pallets = df["Pallets Pedido (Original)"].sum()
-        total_pallets = round(total_pallets)  # Asegurar que sea un número entero antes de la verificación
+        # Ajuste de pedidos para optimizar el almacenamiento
+        def ajustar_pedido(row):
+            pedido_original = row["pedido"]
+            ajuste = 0
+            
+            if 0 < (pedido_original % row["cajaspalet"]) <= row["cajascapas"]:
+                ajuste = - (pedido_original % row["cajaspalet"])
+            elif row["cajaspalet"] - (pedido_original % row["cajaspalet"]) <= row["cajascapas"]:
+                ajuste = row["cajaspalet"] - (pedido_original % row["cajaspalet"])
+            
+            return ajuste
+        
+        df["Ajuste Pedido"] = df.apply(ajustar_pedido, axis=1)
+        df["Pedido Final Ajustado"] = df["pedido"] + df["Ajuste Pedido"]
+        df["Pallets Pedido Final"] = df["Pedido Final Ajustado"] / df["cajaspalet"]
 
-        falta_para_33 = (33 - (total_pallets % 33)) % 33
-
-        # Inicializar Pedido Adicional a 0
-        df["Pedido Adicional"] = 0
-        df["Pallets Pedido Adicional"] = 0
-
-        # Solo si falta completar pallets, asignar pedido adicional
-        if falta_para_33 > 0:
-            top_articulos = df.sort_values(by="21 días", ascending=False).head(num_articulos_pedido_adicional).index
-            pedido_por_articulo = ((falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]).round().astype(int)
-
-            # Asegurar que el pedido adicional sea un múltiplo exacto de CajasPalet
-            pedido_por_articulo = (pedido_por_articulo // df.loc[top_articulos, "cajaspalet"]) * df.loc[top_articulos, "cajaspalet"]
-
-            df.loc[top_articulos, "Pedido Adicional"] = pedido_por_articulo
-            df["Pallets Pedido Adicional"] = (df["Pedido Adicional"] / df["cajaspalet"]).fillna(0).round(2)
-
-        df["Pallets Pedido Total"] = df["Pallets Pedido (Original)"] + df["Pallets Pedido Adicional"]
-        df["Pedido Completo SAP"] = df["pedido"] + df["Pedido Adicional"]
-
-        # 🔹 **Filtrar solo los artículos con pedido o con pedido adicional**
-        df_pedido_sap = df[(df["pedido"] > 0) | (df["Pedido Adicional"] > 0)][
-            ["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional",
-             "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]
+        df_pedido_sap = df[(df["Pedido Final Ajustado"] > 0)][
+            ["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "cajaspalet",
+             "Ajuste Pedido", "Pedido Final Ajustado", "Pallets Pedido Final"]
         ]
 
-        # 🔹 **Generar los cuatro archivos de salida**
         output_files = {}
-
-        # 📌 1. Planificación de Pedidos
-        output_files[f"Planificacion_Pedidos_{timestamp}"] = io.BytesIO()
-        df.to_excel(output_files[f"Planificacion_Pedidos_{timestamp}"], index=False, engine='xlsxwriter')
-        output_files[f"Planificacion_Pedidos_{timestamp}"].seek(0)
-
-        # 📌 2. Errores en CajasCapas
-        df_errores = df[df["cajascapas"] == 0][["pedido", "cajascapas", "cajaspalet"]]
-        output_files[f"Errores_CajasCapas_{timestamp}"] = io.BytesIO()
-        df_errores.to_excel(output_files[f"Errores_CajasCapas_{timestamp}"], index=False, engine='xlsxwriter')
-        output_files[f"Errores_CajasCapas_{timestamp}"].seek(0)
-
-        # 📌 3. Productos para Descatalogar
-        df_descatalogar = df[(df["21 días"] < 5) | (df["21 días"] == 0)]
-        output_files[f"Productos_Para_Descatalogar_{timestamp}"] = io.BytesIO()
-        df_descatalogar.to_excel(output_files[f"Productos_Para_Descatalogar_{timestamp}"], index=False, engine='xlsxwriter')
-        output_files[f"Productos_Para_Descatalogar_{timestamp}"].seek(0)
-
-        # 📌 4. Pedido para SAP
         output_files[f"Pedido_para_SAP_{timestamp}"] = io.BytesIO()
         df_pedido_sap.to_excel(output_files[f"Pedido_para_SAP_{timestamp}"], index=False, engine='xlsxwriter')
         output_files[f"Pedido_para_SAP_{timestamp}"].seek(0)
