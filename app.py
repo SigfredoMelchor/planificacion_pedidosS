@@ -79,13 +79,12 @@ if archivo is not None:
         df["Pedido Adicional"] = 0
         df["Pallets Pedido Adicional"] = 0
 
-        # 🔹 **Ajustar el Pedido Adicional si el total es menor a 33 pallets**
+        # 🔹 **Ajustar el Pedido Adicional para llegar exactamente a 33 pallets**
         total_pallets = df["Pallets Pedido (Original)"].sum()
         falta_para_33 = (33 - (total_pallets % 33)) % 33
         if falta_para_33 > 0:
             top_articulos = df.sort_values(by="21 días", ascending=False).head(num_articulos_pedido_adicional).index
-            pedido_por_articulo = ((falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]).round().astype(int)
-            pedido_por_articulo = (pedido_por_articulo // df.loc[top_articulos, "cajaspalet"]) * df.loc[top_articulos, "cajaspalet"]
+            pedido_por_articulo = (falta_para_33 // num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]
             df.loc[top_articulos, "Pedido Adicional"] = pedido_por_articulo
             df["Pallets Pedido Adicional"] = (df["Pedido Adicional"] / df["cajaspalet"]).fillna(0).round(2)
 
