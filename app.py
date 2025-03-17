@@ -77,27 +77,35 @@ if archivo is not None:
         df["pedido"] = df["Pedido Ajustado"]
         df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
 
-        # 🔹 **Generar el archivo Pedido para SAP con las columnas correctas**
-        df["Pedido Adicional"] = 0
-        df["Pallets Pedido Adicional"] = 0
-        df["Pallets Pedido Total"] = df["Pallets Pedido (Original)"] + df["Pallets Pedido Adicional"]
-        df["Pedido Completo SAP"] = df["pedido"] + df["Pedido Adicional"]
+        # Generar los cuatro archivos de salida
+        output_files = {}
 
-        df_sap = df[["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional", "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]]
+        # 📌 1. Planificación de Pedidos
+        output_files[f"Planificacion_Pedidos_{timestamp}.xlsx"] = df.copy()
 
-        # 📌 Guardar Pedido para SAP
-        output_file_sap = f"Pedido_para_SAP_{timestamp}.xlsx"
-        output_buffer_sap = io.BytesIO()
-        df_sap.to_excel(output_buffer_sap, index=False, engine='xlsxwriter')
-        output_buffer_sap.seek(0)
+        # 📌 2. Errores en CajasCapas
+        df_errores = df[df["cajascapas"] == 0]
+        output_files[f"Errores_CajasCapas_{timestamp}.xlsx"] = df_errores.copy()
 
-        # 📥 Botón de descarga
-        st.success("✅ Pedido para SAP generado correctamente!")
-        st.download_button(
-            label="📥 Descargar Pedido para SAP",
-            data=output_buffer_sap.getvalue(),
-            file_name=output_file_sap,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # 📌 3. Productos para Descatalogar
+        df_descatalogar = df[(df["21 días"] < 5) | (df["21 días"] == 0)]
+        output_files[f"Productos_Para_Descatalogar_{timestamp}.xlsx"] = df_descatalogar.copy()
+
+        # 📌 4. Pedido para SAP
+        df_sap = df[["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "cajaspalet"]]
+        output_files[f"Pedido_para_SAP_{timestamp}.xlsx"] = df_sap.copy()
+
+        # 📥 Botones para descargar los archivos
+        st.success("✅ ¡Archivos generados correctamente!")
+        for nombre, data in output_files.items():
+            output_buffer = io.BytesIO()
+            data.to_excel(output_buffer, index=False, engine='xlsxwriter')
+            output_buffer.seek(0)
+            st.download_button(
+                label=f"📥 Descargar {nombre}",
+                data=output_buffer.getvalue(),
+                file_name=nombre,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 else:
     st.warning("📤 **Por favor, sube un archivo Excel para comenzar.**")
