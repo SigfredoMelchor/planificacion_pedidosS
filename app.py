@@ -75,13 +75,17 @@ if archivo is not None:
         df["pedido"] = df["Pedido Ajustado"]
         df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
 
-        # 🔹 **Distribuir el pedido adicional correctamente (múltiplo exacto de CajasPalet)**
+        # 🔹 **Corrección: Verificar si realmente falta pedido adicional**
+        total_pallets = df["Pallets Pedido (Original)"].sum()
+        total_pallets = round(total_pallets)  # Asegurar que sea un número entero antes de la verificación
+
+        falta_para_33 = (33 - (total_pallets % 33)) % 33
+
+        # Inicializar Pedido Adicional a 0
         df["Pedido Adicional"] = 0
         df["Pallets Pedido Adicional"] = 0
 
-        total_pallets = df["Pallets Pedido (Original)"].sum()
-        falta_para_33 = (33 - (total_pallets % 33)) % 33  # Ajuste para múltiplo de 33
-
+        # Solo si falta completar pallets, asignar pedido adicional
         if falta_para_33 > 0:
             top_articulos = df.sort_values(by="21 días", ascending=False).head(num_articulos_pedido_adicional).index
             pedido_por_articulo = ((falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]).round().astype(int)
@@ -126,14 +130,6 @@ if archivo is not None:
         df_pedido_sap.to_excel(output_files[f"Pedido_para_SAP_{timestamp}"], index=False, engine='xlsxwriter')
         output_files[f"Pedido_para_SAP_{timestamp}"].seek(0)
 
-        # 📥 Botones para descargar los archivos
         st.success("✅ ¡Archivos generados correctamente!")
         for nombre, archivo in output_files.items():
-            st.download_button(
-                label=f"📥 Descargar {nombre}",
-                data=archivo,
-                file_name=f"{nombre}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-else:
-    st.warning("📤 **Por favor, sube un archivo Excel para comenzar.**")
+            st.download_button(f"📥 Descargar {nombre}", archivo, f"{nombre}.xlsx")
