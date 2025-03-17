@@ -59,34 +59,23 @@ if archivo is not None:
             fecha_limite = datetime.now() - timedelta(days=90)
             df = df[df["última venta"].isna() | (df["última venta"] >= fecha_limite)]
 
-        # Procesar el pedido
-        df["Stock Necesario"] = (df["21 días"] / 21 * dias_stock).round().astype(int)
-        df["Exceso de Stock"] = (df["stock virtual"] - df["Stock Necesario"]).round().astype(int)
-
-        # Calcular "Pedido Ajustado"
-        df["Pedido Ajustado"] = df.apply(
-            lambda row: max(row["Stock Necesario"] - row["stock virtual"], 0) if row["Stock Necesario"] > row["stock virtual"] else 0, axis=1
-        )
-
         # Ajustar pedidos en múltiplos de "CajasCapas" para evitar pallets mixtos
-        df["Pedido Ajustado"] = df.apply(
-            lambda row: ((row["Pedido Ajustado"] // row["cajascapas"]) * row["cajascapas"]) if row["Pedido Ajustado"] > 0 else 0, axis=1
-        )
-
-        # Asignar el nuevo pedido calculado
-        df["pedido"] = df["Pedido Ajustado"]
+        df["Ajuste CajasCapas"] = df["pedido"] % df["cajascapas"]
+        df["pedido"] = df["pedido"] - df["Ajuste CajasCapas"]
+        
+        # Calcular "Pallets Pedido (Original)"
         df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
-        df["Pedido Adicional"] = 0
-        df["Pallets Pedido Adicional"] = 0
-
+        
         # 🔹 **Ajustar el Pedido Adicional para que el total de pallets sea múltiplo de 33**
         total_pallets = df["Pallets Pedido (Original)"].sum()
         exceso_pallets = total_pallets % 33
+        df["Pedido Adicional"] = 0
+        df["Pallets Pedido Adicional"] = 0
+        
         if exceso_pallets != 0:
             falta_para_33 = 33 - exceso_pallets
             top_articulos = df.sort_values(by="21 días", ascending=False).head(num_articulos_pedido_adicional).index
-            pedido_por_articulo = ((falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]).round().astype(int)
-            pedido_por_articulo = (pedido_por_articulo // df.loc[top_articulos, "cajaspalet"]) * df.loc[top_articulos, "cajaspalet"]
+            pedido_por_articulo = (falta_para_33 // num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]
             df.loc[top_articulos, "Pedido Adicional"] = pedido_por_articulo
             df["Pallets Pedido Adicional"] = (df["Pedido Adicional"] / df["cajaspalet"]).fillna(0).round(2)
 
@@ -98,7 +87,7 @@ if archivo is not None:
             f"Planificacion_Pedidos_{timestamp}.xlsx": df,
             f"Errores_CajasCapas_{timestamp}.xlsx": df[df["cajascapas"] == 0],
             f"Productos_Para_Descatalogar_{timestamp}.xlsx": df[(df["21 días"] < 5) | (df["21 días"] == 0)],
-            f"Pedido_para_SAP_{timestamp}.xlsx": df[df["Pedido Completo SAP"] > 0][["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional", "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]]
+            f"Pedido_para_SAP_{timestamp}.xlsx": df[df["Pedido Completo SAP"] > 0][["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional", "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP", "Ajuste CajasCapas"]]
         }
 
         # Descargar los archivos
