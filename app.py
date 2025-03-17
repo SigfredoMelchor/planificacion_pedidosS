@@ -42,8 +42,9 @@ if archivo is not None:
         st.error(f"❌ Error: Faltan las siguientes columnas en el archivo: {', '.join(columnas_faltantes)}")
         st.stop()
 
-    # Evitar división por cero
-    df["cajascapas"] = df["cajascapas"].replace(0, 1)
+    # Evitar división por cero y NaN en columnas numéricas
+    df["cajascapas"] = df["cajascapas"].fillna(1).replace(0, 1).astype(int)
+    df["pedido"] = df["pedido"].fillna(0).astype(int)
 
     # Selección de parámetros
     dias_stock = st.slider("📆 Selecciona los días de stock", 1, 90, 21)
