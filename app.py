@@ -65,10 +65,6 @@ if archivo is not None:
         df["Stock Necesario"] = ((df["21 días"] / 21) * dias_stock).fillna(0).round().astype(int)
         df["Exceso de Stock"] = (df["stock virtual"] - df["Stock Necesario"]).round().astype(int)
 
-        # **Ajustar pedidos en múltiplos de CajasCapas**
-        df["Ajuste CajasCapas"] = df["pedido"] % df["cajascapas"]
-        df["pedido"] = df["pedido"] - df["Ajuste CajasCapas"]
-        
         # **Calcular "Pallets Pedido (Original)"**
         df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
         
@@ -94,7 +90,7 @@ if archivo is not None:
             f"Planificacion_Pedidos_{timestamp}.xlsx": df,
             f"Errores_CajasCapas_{timestamp}.xlsx": df[df["cajascapas"] == 0],
             f"Productos_Para_Descatalogar_{timestamp}.xlsx": df[(df["21 días"] < 5) | (df["21 días"] == 0)],
-            f"Pedido_para_SAP_{timestamp}.xlsx": df[df["Pedido Completo SAP"] > 0][["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional", "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP", "Ajuste CajasCapas"]]
+            f"Pedido_para_SAP_{timestamp}.xlsx": df[df["Pedido Completo SAP"] > 0][["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional", "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]]
         }
 
         # Descargar los archivos
