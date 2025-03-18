@@ -61,23 +61,24 @@ if archivo is not None:
             fecha_limite = datetime.now() - timedelta(days=90)
             df = df[df["última venta"].isna() | (df["última venta"] >= fecha_limite)]
 
-        # **🔹 Corregir cálculo de Stock Necesario basado en días de stock**
+        # **🔹 Calcular Stock Necesario en función de los días de stock**
         df["Stock Necesario"] = ((df["21 días"] / 21) * dias_stock).fillna(0).round().astype(int)
         df["Exceso de Stock"] = (df["stock virtual"] - df["Stock Necesario"]).round().astype(int)
-        
-        # Ajustar pedidos en múltiplos de "CajasCapas" para evitar pallets mixtos
+
+        # **Ajustar pedidos en múltiplos de CajasCapas**
         df["Ajuste CajasCapas"] = df["pedido"] % df["cajascapas"]
         df["pedido"] = df["pedido"] - df["Ajuste CajasCapas"]
         
-        # Calcular "Pallets Pedido (Original)"
+        # **Calcular "Pallets Pedido (Original)"**
         df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
         
-        # 🔹 **Ajustar el Pedido Adicional para que el total de pallets sea múltiplo de 33**
+        # **🔹 Ajustar el Pedido Adicional para que el total de pallets sea múltiplo de 33**
         total_pallets = df["Pallets Pedido (Original)"].sum()
-        falta_para_33 = (33 - (total_pallets % 33)) % 33
+        falta_para_33 = (33 - (total_pallets % 33)) % 33 if total_pallets % 33 != 0 else 0
+
         df["Pedido Adicional"] = 0
         df["Pallets Pedido Adicional"] = 0
-        
+
         if falta_para_33 > 0:
             top_articulos = df.sort_values(by="21 días", ascending=False).head(num_articulos_pedido_adicional).index
             pedido_por_articulo = ((falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]).round().astype(int)
