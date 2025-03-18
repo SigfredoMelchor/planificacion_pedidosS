@@ -79,7 +79,7 @@ if archivo is not None:
             pedido_por_articulo = ((falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]).round().astype(int)
             pedido_por_articulo = (pedido_por_articulo // df.loc[top_articulos, "cajaspalet"]) * df.loc[top_articulos, "cajaspalet"]
             df.loc[top_articulos, "Pedido Adicional"] = pedido_por_articulo
-            df["Pallets Pedido Adicional"] = (df["Pedido Adicional"] / df["cajaspalet"]).fillna(0).round(2)
+            df.loc[top_articulos, "Pallets Pedido Adicional"] = (df.loc[top_articulos, "Pedido Adicional"] / df.loc[top_articulos, "cajaspalet"]).fillna(0).round(2)
 
         df["Pallets Pedido Total"] = df["Pallets Pedido (Original)"] + df["Pallets Pedido Adicional"]
         df["Pedido Completo SAP"] = df["pedido"] + df["Pedido Adicional"]
