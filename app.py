@@ -102,26 +102,25 @@ if archivo is not None:
         df["Pallets Pedido Total"] = df["Pallets Pedido (Original)"] + df["Pallets Pedido Adicional"]
         df["Pedido Completo SAP"] = df["pedido"] + df["Pedido Adicional"]
 
-        # 🔹 **Generar los cuatro archivos de salida**
-        output_files = {}
+             # 📌 Generar los 4 archivos
+        output_files = {
+            f"Planificacion_Pedidos_{timestamp}.xlsx": df,
+            f"Errores_CajasCapas_{timestamp}.xlsx": df[df["cajaspalet"] == 0],
+            f"Productos_Para_Descatalogar_{timestamp}.xlsx": df[(df["21 días"] < 5) | (df["21 días"] == 0)],
+            f"Pedido_para_SAP_{timestamp}.xlsx": df[df["Pedido Completo SAP"] > 0][["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional", "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]]
+        }
 
-        # 📌 1. Planificación de Pedidos
-        output_files[f"Planificacion_Pedidos_{timestamp}"] = io.BytesIO()
-        df.to_excel(output_files[f"Planificacion_Pedidos_{timestamp}"], index=False, engine='xlsxwriter')
-
-        # 📌 2. Errores en CajasCapas
-        df_errores = df[df["cajascapas"] == 0]
-        output_files[f"Errores_CajasCapas_{timestamp}"] = io.BytesIO()
-        df_errores.to_excel(output_files[f"Errores_CajasCapas_{timestamp}"], index=False, engine='xlsxwriter')
-
-        # 📌 3. Productos para Descatalogar
-        df_descatalogar = df[(df["21 días"] < 5) | (df["21 días"] == 0)]
-        output_files[f"Productos_Para_Descatalogar_{timestamp}"] = io.BytesIO()
-        df_descatalogar.to_excel(output_files[f"Productos_Para_Descatalogar_{timestamp}"], index=False, engine='xlsxwriter')
-
-        # 📌 4. Pedido para SAP
-        output_files[f"Pedido_para_SAP_{timestamp}"] = io.BytesIO()
-        df.to_excel(output_files[f"Pedido_para_SAP_{timestamp}"], index=False, engine='xlsxwriter')
-
-        # 📥 Botones para descargar los archivos
+        # Descargar los archivos
         st.success("✅ ¡Archivos generados correctamente!")
+        for nombre, data in output_files.items():
+            output_buffer = io.BytesIO()
+            data.to_excel(output_buffer, index=False, engine='xlsxwriter')
+            output_buffer.seek(0)
+            st.download_button(
+                label=f"📥 Descargar {nombre}",
+                data=output_buffer.getvalue(),
+                file_name=nombre,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+else:
+    st.warning("📤 **Por favor, sube un archivo Excel para comenzar.**")
