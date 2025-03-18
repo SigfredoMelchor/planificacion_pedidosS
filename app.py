@@ -24,7 +24,6 @@ if archivo is not None:
         "descripción de artículo": ["descripción de artículo", "nombre del producto"],
         "21 días": ["21 días", "21_dias", "21dias"],
         "stock virtual": ["stock virtual", "stock_virtual", "stockvirtual"],
-        "cajascapas": ["cajascapas", "cajas capas", "cajas_capas"],
         "cajaspalet": ["cajaspalet", "cajas palet", "cajas_palet"],
         "pedido": ["pedido", "orden", "cantidad pedida"],
         "última venta": ["última venta", "fecha última venta", "fecha_ultima_venta"]
@@ -36,14 +35,13 @@ if archivo is not None:
                 break
 
     # Verificar columnas requeridas
-    columnas_requeridas = ["articulo", "descripción de artículo", "21 días", "stock virtual", "cajascapas", "cajaspalet", "pedido"]
+    columnas_requeridas = ["articulo", "descripción de artículo", "21 días", "stock virtual", "cajaspalet", "pedido"]
     columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
     if columnas_faltantes:
         st.error(f"❌ Error: Faltan las siguientes columnas en el archivo: {', '.join(columnas_faltantes)}")
         st.stop()
 
     # Evitar división por cero y NaN en columnas numéricas
-    df["cajascapas"] = df["cajascapas"].fillna(1).replace(0, 1).astype(int)
     df["cajaspalet"] = df["cajaspalet"].fillna(1).replace(0, 1).astype(int)
     df["pedido"] = pd.to_numeric(df["pedido"], errors='coerce').fillna(0).astype(int)
 
@@ -64,9 +62,10 @@ if archivo is not None:
         # **🔹 Calcular Stock Necesario en función de los días de stock**
         df["Stock Necesario"] = ((df["21 días"] / 21) * dias_stock).fillna(0).round().astype(int)
         df["Exceso de Stock"] = (df["stock virtual"] - df["Stock Necesario"]).round().astype(int)
-
-        # **Calcular "Pallets Pedido (Original)"**
-        df["Pallets Pedido (Original)"] = (df["pedido"] / df["cajaspalet"]).fillna(0).round(2)
+        
+        # **Calcular "Pallets Pedido (Original)" en función del Stock Necesario**
+        df["Pallets Pedido (Original)"] = ((df["Stock Necesario"] - df["stock virtual"]) / df["cajaspalet"]).clip(lower=0).fillna(0).round(2)
+        df["pedido"] = (df["Pallets Pedido (Original)"] * df["cajaspalet"]).astype(int)
         
         # **🔹 Ajustar el Pedido Adicional para que el total de pallets sea múltiplo de 33**
         total_pallets = df["Pallets Pedido (Original)"].sum()
@@ -88,7 +87,7 @@ if archivo is not None:
         # 📌 Generar los 4 archivos
         output_files = {
             f"Planificacion_Pedidos_{timestamp}.xlsx": df,
-            f"Errores_CajasCapas_{timestamp}.xlsx": df[df["cajascapas"] == 0],
+            f"Errores_CajasCapas_{timestamp}.xlsx": df[df["cajaspalet"] == 0],
             f"Productos_Para_Descatalogar_{timestamp}.xlsx": df[(df["21 días"] < 5) | (df["21 días"] == 0)],
             f"Pedido_para_SAP_{timestamp}.xlsx": df[df["Pedido Completo SAP"] > 0][["articulo", "descripción de artículo", "pedido", "Pallets Pedido (Original)", "Pedido Adicional", "Pallets Pedido Adicional", "cajaspalet", "Pallets Pedido Total", "Pedido Completo SAP"]]
         }
