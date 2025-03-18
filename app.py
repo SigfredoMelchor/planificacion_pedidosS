@@ -92,6 +92,8 @@ if archivo is not None:
         if falta_para_33 > 0:
             top_articulos = df.sort_values(by="21 días", ascending=False).head(num_articulos_pedido_adicional).index
             pedido_por_articulo = ((falta_para_33 / num_articulos_pedido_adicional) * df.loc[top_articulos, "cajaspalet"]).round().astype(int)
+
+            # Asegurar que el pedido adicional sea un múltiplo exacto de CajasPalet
             pedido_por_articulo = (pedido_por_articulo // df.loc[top_articulos, "cajaspalet"]) * df.loc[top_articulos, "cajaspalet"]
 
             df.loc[top_articulos, "Pedido Adicional"] = pedido_por_articulo
@@ -100,15 +102,26 @@ if archivo is not None:
         df["Pallets Pedido Total"] = df["Pallets Pedido (Original)"] + df["Pallets Pedido Adicional"]
         df["Pedido Completo SAP"] = df["pedido"] + df["Pedido Adicional"]
 
-        # 📌 4. Pedido para SAP
-        output_file = io.BytesIO()
-        df.to_excel(output_file, index=False, engine='xlsxwriter')
+        # 🔹 **Generar los cuatro archivos de salida**
+        output_files = {}
 
-        st.download_button(
-            label=f"📥 Descargar Pedido_para_SAP_{timestamp}.xlsx",
-            data=output_file.getvalue(),
-            file_name=f"Pedido_para_SAP_{timestamp}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-else:
-    st.warning("📤 **Por favor, sube un archivo Excel para comenzar.**")
+        # 📌 1. Planificación de Pedidos
+        output_files[f"Planificacion_Pedidos_{timestamp}"] = io.BytesIO()
+        df.to_excel(output_files[f"Planificacion_Pedidos_{timestamp}"], index=False, engine='xlsxwriter')
+
+        # 📌 2. Errores en CajasCapas
+        df_errores = df[df["cajascapas"] == 0]
+        output_files[f"Errores_CajasCapas_{timestamp}"] = io.BytesIO()
+        df_errores.to_excel(output_files[f"Errores_CajasCapas_{timestamp}"], index=False, engine='xlsxwriter')
+
+        # 📌 3. Productos para Descatalogar
+        df_descatalogar = df[(df["21 días"] < 5) | (df["21 días"] == 0)]
+        output_files[f"Productos_Para_Descatalogar_{timestamp}"] = io.BytesIO()
+        df_descatalogar.to_excel(output_files[f"Productos_Para_Descatalogar_{timestamp}"], index=False, engine='xlsxwriter')
+
+        # 📌 4. Pedido para SAP
+        output_files[f"Pedido_para_SAP_{timestamp}"] = io.BytesIO()
+        df.to_excel(output_files[f"Pedido_para_SAP_{timestamp}"], index=False, engine='xlsxwriter')
+
+        # 📥 Botones para descargar los archivos
+        st.success("✅ ¡Archivos generados correctamente!")
